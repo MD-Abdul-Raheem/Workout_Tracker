@@ -1,0 +1,144 @@
+
+██╗██████╗  ██████╗ ███╗   ██╗██╗      ██████╗  ██████╗      █████╗ ██╗
+██║██╔══██╗██╔═══██╗████╗  ██║██║     ██╔═══██╗██╔════╝     ██╔══██╗██║
+██║██████╔╝██║   ██║██╔██╗ ██║██║     ██║   ██║██║  ███╗    ███████║██║
+██║██╔══██╗██║   ██║██║╚██╗██║██║     ██║   ██║██║   ██║    ██╔══██║██║
+██║██║  ██║╚██████╔╝██║ ╚████║███████╗╚██████╔╝╚██████╔╝    ██║  ██║██║
+╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝ ╚═════╝  ╚═════╝     ╚═╝  ╚═╝╚═╝
+
+════════════════════════════════════════════════════════════════════════════
+THE INTELLIGENT RESISTANCE TRAINING SYSTEM
+Technical Specification & User Guide v3.0
+════════════════════════════════════════════════════════════════════════════
+
+1.0  EXECUTIVE SUMMARY
+────────────────────────────────────────────────────────────────────────────
+IronLog AI is a high-performance Progressive Web Application (PWA) designed
+to modernize resistance training tracking. Unlike traditional spreadsheets
+or basic counters, IronLog acts as an intelligent training partner.
+
+It bridges the gap between raw data entry and intelligent analytics by 
+integrating Google's Gemini AI for workout generation. The application 
+prioritizes speed, data privacy (Local-First Architecture), and a premium 
+user experience via a sophisticated "Dark Glass" aesthetic.
+
+2.0  TECHNOLOGY STACK
+────────────────────────────────────────────────────────────────────────────
+The application is built on a modern, type-safe foundation to ensure
+scalability, maintainability, and high performance.
+
+    ⚡ CORE FRAMEWORK
+       React 19 (Functional Components & Hooks)
+
+    📘 LANGUAGE
+       TypeScript (Strict Static Typing for robustness)
+
+    🎨 UI ENGINE
+       Tailwind CSS (Utility-first, Custom Animations, Glassmorphism)
+
+    🧠 ARTIFICIAL INTELLIGENCE
+       Google Gemini API (@google/genai) - Model: gemini-2.5-flash
+
+    💾 DATA PERSISTENCE
+       LocalStorage (Browser-native NoSQL JSON Store)
+
+    📦 BUILD TOOLING
+       Vite / Webpack (Optimized bundling)
+
+3.0  SYSTEM ARCHITECTURE
+────────────────────────────────────────────────────────────────────────────
+The application operates on a "Local-First" principle, ensuring zero latency
+and offline capability.
+
+    [ USER INPUT ] ➔ [ REACT STATE ] ➔ [ JSON SERIALIZATION ]
+           │                 │                    │
+           ▼                 ▼                    ▼
+    [ GEMINI AI ]     [ UI UPDATES ]      [ LOCAL STORAGE ]
+
+    • State Management:
+      React Hooks (useState, useMemo, useEffect) manage real-time UI 
+      updates and complex data dependencies.
+
+    • Auto-Archival System:
+      On startup, the app runs a background check comparing the current
+      date against the last active session. If a new week (Monday) has
+      begun, it automatically:
+        1. Serializes the previous week's state.
+        2. Calculates statistics (Volume, Sets, Top Muscle).
+        3. Pushes the data to the History array.
+        4. Resets the active view for the fresh week.
+
+4.0  CORE FEATURES
+────────────────────────────────────────────────────────────────────────────
+
+    💪 SMART TRACKING ENGINE
+       • Multi-Set Inputs: 
+         Independent tracking for Set 1, Set 2, and Set 3. This allows
+         users to record specific Reps and Weight for every single set
+         (e.g., Pyramid sets or Drop sets).
+       
+       • Dynamic Arrays: 
+         The data model automatically adjusts array lengths when sets are
+         added or removed.
+
+       • Muscle Specificity: 
+         Supports detailed targeting descriptions (e.g., "Upper Chest" 
+         instead of just "Chest") for granular analytics.
+
+    🤖 AI WORKOUT GENERATION
+       • Natural Language Processing: 
+         Users can describe goals in plain English (e.g., "Leg hypertrophy
+         focusing on quads").
+       
+       • Structured Output: 
+         The Gemini API returns strict JSON data which is parsed, validated,
+         and hydrated directly into the user's workout plan.
+
+    📅 CALENDAR & HISTORY
+       • Real-Time Sync: 
+         An interactive weekly calendar strip mapped to real-world dates.
+       
+       • Snapshot View: 
+         "Time Travel" capability allows users to click any past date
+         on the calendar to view historical performance in a read-only state.
+       
+       • Analytics: 
+         Automated Monthly and Weekly reports calculating Total Volume 
+         (kg/lbs), Set Counts, and Muscle Focus distribution.
+
+    🎨 PREMIUM UX/UI
+       • Glassmorphism: 
+         Uses backdrop-blur filters and translucent layers to create depth.
+       
+       • Responsive Design: 
+         Fully optimized for mobile touch targets while scaling gracefully
+         to desktop wide views.
+       
+       • Micro-Interactions: 
+         Includes pop effects, slide-ups, and haptic-style visual feedback
+         for a tactile feel.
+
+5.0  USER ADVANTAGES
+────────────────────────────────────────────────────────────────────────────
+
+    🚀 ZERO LATENCY
+       There are no server round-trips for basic operations. Data retrieval
+       and updates are instantaneous.
+
+    🔒 100% PRIVACY
+       Your workout data lives on your device. It is never sold, tracked,
+       or stored on external cloud servers.
+
+    📈 PROGRESSIVE OVERLOAD
+       Visual cues, progress bars, and history snapshots allow users to 
+       easily verify they are lifting heavier or performing more reps 
+       than the previous week.
+
+    🛡️ DATA RESILIENCE
+       Includes a robust Backup & Restore system (JSON Export/Import).
+       Users can export their entire history to a file for safekeeping
+       or to transfer data between devices.
+
+════════════════════════════════════════════════════════════════════════════
+© 2024 IRONLOG AI • EMPOWERING STRENGTH THROUGH INTELLIGENCE
+════════════════════════════════════════════════════════════════════════════

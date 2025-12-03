@@ -1,0 +1,5 @@
+{
+  "name": "Workout Tracker",
+  "description": "A modern, persistent weekly workout tracker with AI-powered routine generation.",
+  "requestFramePermissions": []
+}
