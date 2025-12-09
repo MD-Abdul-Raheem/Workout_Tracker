@@ -3,6 +3,11 @@ body {
   background-color: #000000;
   background-image: radial-gradient(circle at 50% 0%, #1a1a1a 0%, #000000 70%);
   background-attachment: fixed;
+  overflow-x: hidden;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 .glass {
@@ -38,6 +43,14 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 2px;
 }
 
 input[type=number]::-webkit-inner-spin-button,

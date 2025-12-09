@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import { DAYS_OF_WEEK, DayOfWeek, Exercise, WeeklyPlan, MuscleGroup, HistoryEntry, WeeklyStats } from './types';
 import { generateWorkoutForDay } from './services/geminiService';
 import { 
@@ -273,6 +274,30 @@ function App() {
 
   const weeklyStats = useMemo(() => calculateStats(weeklyPlan), [weeklyPlan]);
 
+  // --- ANDROID BACK BUTTON ---
+  useEffect(() => {
+    const backHandler = CapacitorApp.addListener('backButton', () => {
+      if (currentView === 'day' || currentView === 'history' || currentView === 'snapshot') {
+        setCurrentView('week');
+      } else if (isAIModalOpen) {
+        setIsAIModalOpen(false);
+      } else if (isReportOpen) {
+        setIsReportOpen(false);
+      } else if (isMonthlyReportOpen) {
+        setIsMonthlyReportOpen(false);
+      } else if (isCalendarModalOpen) {
+        setIsCalendarModalOpen(false);
+      } else if (confirmation.isOpen) {
+        setConfirmation(prev => ({ ...prev, isOpen: false }));
+      } else if (titleEditModal.isOpen) {
+        setTitleEditModal(prev => ({ ...prev, isOpen: false }));
+      } else {
+        CapacitorApp.exitApp();
+      }
+    });
+    return () => { backHandler.remove(); };
+  }, [currentView, isAIModalOpen, isReportOpen, isMonthlyReportOpen, isCalendarModalOpen, confirmation.isOpen, titleEditModal.isOpen]);
+
   // --- AUTO-ARCHIVE ---
   useEffect(() => {
     const checkAndAutoArchive = () => {
@@ -294,22 +319,23 @@ function App() {
           const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
           const oldWeekLabel = `${oldMonday.toLocaleDateString('en-US', options)} - ${oldSunday.toLocaleDateString('en-US', options)}`;
 
+          const planCopy = JSON.parse(JSON.stringify(weeklyPlan));
           const newEntry: HistoryEntry = {
             id: Date.now().toString(),
             weekLabel: oldWeekLabel,
             dateArchived: new Date().toISOString(),
             startDate: lastActiveMondayISO,
-            plan: weeklyPlan,
+            plan: planCopy,
             stats: oldStats
           };
 
           setHistory(prev => [newEntry, ...prev]);
-          const emptyPlan = getEmptyPlan();
-          setWeeklyPlan(emptyPlan);
-          showToast("New week started! Previous week auto-archived.", "info");
-        } else {
-             const emptyPlan = getEmptyPlan();
-             setWeeklyPlan(emptyPlan);
+          const resetPlan = { ...weeklyPlan };
+          Object.keys(resetPlan).forEach(day => {
+            resetPlan[day as DayOfWeek] = resetPlan[day as DayOfWeek].map(ex => ({ ...ex, completed: false }));
+          });
+          setWeeklyPlan(resetPlan);
+          showToast("Week saved! Ready for new week.", "success");
         }
         localStorage.setItem(LAST_ACTIVE_WEEK_KEY, currentMondayISO);
       }
@@ -555,12 +581,15 @@ function App() {
     const hasExercises = Object.values(weeklyPlan).some((day: any) => day.length > 0);
     if (!hasExercises) return false;
     const stats = calculateStats(weeklyPlan);
+    const planCopy = JSON.parse(JSON.stringify(weeklyPlan));
+    console.log('Archiving week with plan:', planCopy);
+    console.log('Monday exercises completed status:', planCopy.Monday?.map((ex: Exercise) => ({ name: ex.name, completed: ex.completed })));
     const newEntry: HistoryEntry = {
       id: Date.now().toString(),
       weekLabel: getWeekLabel(weekCalendar),
       dateArchived: new Date().toISOString(),
       startDate: weekCalendar[0].fullDate.toISOString(),
-      plan: weeklyPlan,
+      plan: planCopy,
       stats: stats
     };
     setHistory(prev => [newEntry, ...prev]);
@@ -568,25 +597,21 @@ function App() {
   };
 
   const completeWeek = () => {
-    setConfirmation({
-      isOpen: true,
-      title: 'Archive Week?',
-      message: 'This will save your progress to History and start a fresh week. Are you sure?',
-      onConfirm: () => {
-        const archived = archiveCurrentWeek();
-        if (archived) {
-          const emptyPlan = getEmptyPlan();
-          setWeeklyPlan(emptyPlan);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(emptyPlan));
-          setIsReportOpen(false); 
-          setConfirmation(prev => ({ ...prev, isOpen: false }));
-          showToast("Week saved to History!", "success");
-        } else {
-          setConfirmation(prev => ({ ...prev, isOpen: false }));
-          alert("Cannot archive an empty week. Add some exercises first.");
-        }
-      }
-    });
+    const hasExercises = Object.values(weeklyPlan).some((day: any) => day.length > 0);
+    if (!hasExercises) {
+      alert("Cannot save an empty week. Add some exercises first.");
+      return;
+    }
+    const archived = archiveCurrentWeek();
+    if (archived) {
+      const resetPlan = { ...weeklyPlan };
+      Object.keys(resetPlan).forEach(day => {
+        resetPlan[day as DayOfWeek] = resetPlan[day as DayOfWeek].map(ex => ({ ...ex, completed: false }));
+      });
+      setWeeklyPlan(resetPlan);
+      setIsReportOpen(false);
+      showToast("Week saved to History!", "success");
+    }
   }
 
   const handleSave = () => {
@@ -683,10 +708,10 @@ function App() {
   const renderConfirmationModal = () => {
     if (!confirmation.isOpen) return null;
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-6 animate-fade-in">
-        <div className="glass-card w-full max-w-sm shadow-2xl p-6 rounded-2xl border border-zinc-700/50" onClick={e => e.stopPropagation()}>
-           <h3 className="text-xl font-black uppercase italic text-white mb-2">{confirmation.title}</h3>
-           <p className="text-zinc-300 text-sm mb-6 leading-relaxed">{confirmation.message}</p>
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-6 animate-fade-in">
+        <div className="glass-card w-full max-w-sm shadow-2xl p-5 sm:p-6 rounded-2xl border border-zinc-700/50" onClick={e => e.stopPropagation()}>
+           <h3 className="text-lg sm:text-xl font-black uppercase italic text-white mb-2">{confirmation.title}</h3>
+           <p className="text-zinc-300 text-sm mb-5 sm:mb-6 leading-relaxed">{confirmation.message}</p>
            <div className="flex gap-3">
              <button onClick={() => setConfirmation(prev => ({ ...prev, isOpen: false }))} className="flex-1 py-3 text-zinc-400 font-bold text-xs uppercase tracking-wider hover:text-white transition-colors bg-zinc-900/50 rounded-lg border border-transparent hover:border-zinc-700">Cancel</button>
              <button onClick={confirmation.onConfirm} className="flex-1 py-3 bg-white text-black font-bold text-xs uppercase tracking-wider hover:bg-zinc-200 transition-colors rounded-lg btn-shine">Confirm</button>
@@ -699,9 +724,9 @@ function App() {
   const renderTitleEditModal = () => {
     if (!titleEditModal.isOpen) return null;
     return (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-6 animate-fade-in">
-        <div className="glass-card w-full max-w-sm shadow-2xl p-6 rounded-2xl border border-zinc-700/50" onClick={e => e.stopPropagation()}>
-           <h3 className="text-xl font-black uppercase italic text-white mb-2">Edit Title</h3>
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-6 animate-fade-in">
+        <div className="glass-card w-full max-w-sm shadow-2xl p-5 sm:p-6 rounded-2xl border border-zinc-700/50" onClick={e => e.stopPropagation()}>
+           <h3 className="text-lg sm:text-xl font-black uppercase italic text-white mb-2">Edit Title</h3>
            <p className="text-zinc-400 text-xs mb-4 uppercase tracking-wider">Focus for {titleEditModal.day}</p>
            <input type="text" autoFocus value={titleEditModal.text} onChange={(e) => setTitleEditModal(prev => ({...prev, text: e.target.value}))} className="w-full bg-zinc-900/50 border border-zinc-700 p-4 rounded-lg text-white font-bold focus:outline-none focus:border-white mb-6 placeholder-zinc-600 transition-all" placeholder="e.g. Chest & Back" />
            <div className="flex gap-3">
@@ -714,37 +739,36 @@ function App() {
   };
 
   const renderWeekView = () => (
-    <div className="pb-24 animate-fade-in max-w-lg mx-auto min-h-screen text-white">
+    <div className="pb-24 animate-fade-in max-w-4xl mx-auto min-h-screen text-white px-2 sm:px-4">
       {/* Changed sticky to relative and added background/blur to allow scrolling */}
-      <header className="flex flex-col px-6 pt-8 pb-4 relative z-30 border-b border-white/10 bg-black/50 backdrop-blur-sm">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-             <AILogo className="w-10 h-10 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]" />
+      <header className="flex flex-col px-4 sm:px-6 pt-6 sm:pt-8 pb-4 relative z-30 border-b border-white/10 bg-black/50 backdrop-blur-sm">
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 sm:gap-3">
+             <AILogo className="w-8 h-8 sm:w-10 sm:h-10 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]" />
              <div>
-                <h1 className="text-2xl font-black text-white tracking-tighter leading-none italic">
+                <h1 className="text-xl sm:text-2xl font-black text-white tracking-tighter leading-none italic">
                   IRON<span className="text-zinc-500">LOG</span>
                 </h1>
                 <DigitalClock />
              </div>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => setIsMonthlyReportOpen(true)} className="p-2.5 bg-zinc-900/80 rounded-full border border-zinc-800 hover:border-zinc-500 hover:bg-zinc-800 transition-all shadow-lg"><BarChartIcon className="w-4 h-4 text-zinc-400" /></button>
-            <button onClick={() => setCurrentView('history')} className="p-2.5 bg-zinc-900/80 rounded-full border border-zinc-800 hover:border-zinc-500 hover:bg-zinc-800 transition-all shadow-lg"><ClockIcon className="w-4 h-4 text-zinc-400" /></button>
-            <button onClick={() => setIsCalendarModalOpen(true)} className="p-2.5 bg-zinc-900/80 rounded-full border border-zinc-800 hover:border-zinc-500 hover:bg-zinc-800 transition-all shadow-lg"><CalendarIcon className="w-4 h-4 text-zinc-400" /></button>
+          <div className="flex gap-1.5 sm:gap-2">
+            <button onClick={() => setIsMonthlyReportOpen(true)} className="p-2 sm:p-2.5 bg-zinc-900/80 rounded-full border border-zinc-800 hover:border-zinc-500 hover:bg-zinc-800 transition-all shadow-lg"><BarChartIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-400" /></button>
+            <button onClick={() => setCurrentView('history')} className="p-2 sm:p-2.5 bg-zinc-900/80 rounded-full border border-zinc-800 hover:border-zinc-500 hover:bg-zinc-800 transition-all shadow-lg"><ClockIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-400" /></button>
+            <button onClick={() => setIsCalendarModalOpen(true)} className="p-2 sm:p-2.5 bg-zinc-900/80 rounded-full border border-zinc-800 hover:border-zinc-500 hover:bg-zinc-800 transition-all shadow-lg"><CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-400" /></button>
           </div>
         </div>
-        {/* Increased padding (py-4, px-2) to prevent shadow clipping */}
-        <div className="flex justify-between items-center w-full overflow-x-auto no-scrollbar gap-3 py-4 px-2">
+        <div className="flex justify-between items-center w-full gap-0.5 sm:gap-1 py-3 sm:py-4 px-0 sm:px-1">
           {weekCalendar.map((item) => (
-            <button key={item.dayName} onClick={() => handleCalendarClick(item.dayName)} className={`flex flex-col items-center justify-center min-w-[44px] w-11 h-16 rounded-xl transition-all shrink-0 border ${item.isToday ? 'bg-white text-black border-white scale-110' : 'bg-zinc-900/40 border-zinc-800 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'}`}>
-              <span className="text-[9px] font-black uppercase tracking-wider opacity-70 mb-1">{item.dayName.substring(0, 3)}</span>
-              <span className="text-lg font-black">{item.dateNum}</span>
+            <button key={item.dayName} onClick={() => handleCalendarClick(item.dayName)} className={`flex flex-col items-center justify-center flex-1 h-12 sm:h-14 rounded-lg transition-all border ${item.isToday ? 'bg-white text-black border-white' : 'bg-zinc-900/40 border-zinc-800 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'}`}>
+              <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-wider opacity-70 mb-0.5">{item.dayName.substring(0, 3)}</span>
+              <span className="text-sm sm:text-base font-black">{item.dateNum}</span>
             </button>
           ))}
         </div>
       </header>
       
-      <div className="flex flex-col gap-4 px-4 mt-6">
+      <div className="flex flex-col gap-3 sm:gap-4 px-2 sm:px-4 mt-4 sm:mt-6">
         {DAYS_OF_WEEK.map((day, index) => {
           const exercises = weeklyPlan[day] as Exercise[];
           const count = exercises.length;
@@ -756,27 +780,27 @@ function App() {
           const dayTitle = workoutTitles[day] || 'Workout Focus';
 
           return (
-            <div key={day} ref={el => dayRefs.current[day] = el} onClick={() => handleDayClick(day)} className={`group relative cursor-pointer p-0 transition-all rounded-2xl border overflow-hidden scroll-mt-40 shadow-lg ${isToday ? 'bg-zinc-900/80 border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.05)]' : 'bg-black/40 border-zinc-800 hover:border-zinc-600'}`}>
-              <div className="p-5 relative z-10">
-                  <div className="flex justify-between items-start mb-3">
+            <div key={day} ref={el => dayRefs.current[day] = el} onClick={() => handleDayClick(day)} className={`group relative cursor-pointer p-0 transition-all rounded-xl sm:rounded-2xl border overflow-hidden scroll-mt-40 shadow-lg ${isToday ? 'bg-zinc-900/80 border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.05)]' : 'bg-black/40 border-zinc-800 hover:border-zinc-600'}`}>
+              <div className="p-4 sm:p-5 relative z-10">
+                  <div className="flex justify-between items-start mb-2 sm:mb-3">
                     <div>
-                        <div className="flex items-baseline gap-3 mb-1">
-                            <h3 className={`text-2xl font-black uppercase tracking-tighter italic leading-none ${isToday ? 'text-white' : 'text-zinc-300'}`}>{day}</h3>
-                            <span className="text-[10px] font-bold text-zinc-600 tracking-wide">{dateLabel}</span>
+                        <div className="flex items-baseline gap-2 sm:gap-3 mb-1">
+                            <h3 className={`text-xl sm:text-2xl font-black uppercase tracking-tighter italic leading-none ${isToday ? 'text-white' : 'text-zinc-300'}`}>{day}</h3>
+                            <span className="text-[9px] sm:text-[10px] font-bold text-zinc-600 tracking-wide">{dateLabel}</span>
                         </div>
-                        <div className="flex items-center gap-2 group/edit" onClick={(e) => e.stopPropagation()}>
-                           <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest">{dayTitle}</p>
-                           <button onClick={(e) => { e.stopPropagation(); handleEditTitle(day); }} className="opacity-0 group-hover/edit:opacity-100 p-1 text-zinc-500 hover:text-white transition-all"><EditIcon className="w-3 h-3" /></button>
+                        <div className="flex items-center gap-1.5 sm:gap-2 group/edit" onClick={(e) => e.stopPropagation()}>
+                           <p className="text-[10px] sm:text-[11px] font-bold text-zinc-500 uppercase tracking-widest">{dayTitle}</p>
+                           <button onClick={(e) => { e.stopPropagation(); handleEditTitle(day); }} className="opacity-0 group-hover/edit:opacity-100 p-1 text-zinc-500 hover:text-white transition-all"><EditIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" /></button>
                         </div>
                     </div>
-                    {isToday && <span className="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded bg-white text-black shadow-glow">Today</span>}
+                    {isToday && <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest px-1.5 sm:px-2 py-0.5 sm:py-1 rounded bg-white text-black shadow-glow">Today</span>}
                   </div>
-                  <div className="flex items-center justify-between mt-4">
-                      <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between mt-3 sm:mt-4">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
                            <span className={`text-xs font-mono font-bold ${isToday ? 'text-white' : 'text-zinc-500'}`}>{completedCount}/{count}</span>
-                           <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-600">Exercises</span>
+                           <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-zinc-600">Exercises</span>
                       </div>
-                      {count > 0 && completedCount === count && <CheckCircleIcon className="w-5 h-5 text-green-500 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]" />}
+                      {count > 0 && completedCount === count && <CheckCircleIcon className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]" />}
                   </div>
               </div>
               {/* Progress Bar Background */}
@@ -788,8 +812,8 @@ function App() {
         })}
       </div>
 
-      <div className="mt-10 px-6 pb-12">
-          <button onClick={() => setIsReportOpen(true)} className="w-full bg-zinc-900 border border-zinc-700 text-white py-4 text-xs font-black uppercase tracking-widest hover:bg-zinc-800 hover:border-zinc-500 transition-all rounded-xl shadow-lg btn-shine">Week Report</button>
+      <div className="mt-6 sm:mt-10 px-2 sm:px-6 pb-12">
+          <button onClick={() => setIsReportOpen(true)} className="w-full bg-zinc-900 border border-zinc-700 text-white py-3 sm:py-4 text-xs font-black uppercase tracking-widest hover:bg-zinc-800 hover:border-zinc-500 transition-all rounded-xl shadow-lg btn-shine">Week Report</button>
       </div>
     </div>
   );
@@ -799,9 +823,9 @@ function App() {
     return (
       <div className="h-screen flex flex-col bg-transparent font-sans overflow-hidden">
         {/* Glass Header */}
-        <div className="shrink-0 glass border-b border-white/10 px-4 flex items-center justify-between h-[72px] z-50">
-          <button onClick={handleBackToWeek} className="p-2 -ml-2 text-zinc-300 hover:text-white transition-colors"><div className="flex items-center gap-1 font-bold uppercase tracking-wider text-xs"><ChevronLeftIcon className="w-5 h-5" />Back</div></button>
-          <h2 className="text-xl font-black uppercase tracking-tighter italic text-white">{selectedDay}</h2>
+        <div className="shrink-0 glass border-b border-white/10 px-3 sm:px-4 flex items-center justify-between h-[60px] sm:h-[72px] z-50">
+          <button onClick={handleBackToWeek} className="p-2 -ml-2 text-zinc-300 hover:text-white transition-colors"><div className="flex items-center gap-1 font-bold uppercase tracking-wider text-[10px] sm:text-xs"><ChevronLeftIcon className="w-4 h-4 sm:w-5 sm:h-5" />Back</div></button>
+          <h2 className="text-lg sm:text-xl font-black uppercase tracking-tighter italic text-white">{selectedDay}</h2>
           <div className="w-10"></div>
         </div>
 
@@ -818,9 +842,9 @@ function App() {
             </div>
           ) : (
             <div className="min-w-full inline-block align-top pb-24">
-              <table className="min-w-full min-w-[340px] table-fixed">
+              <table className="min-w-full table-fixed">
                 <colgroup>
-                  <col className="w-[28%]" /><col className="w-[14%]" /><col className="w-[28%]" /><col className="w-[22%]" /><col className="w-[8%]" />
+                  <col className="w-[30%] sm:w-[28%]" /><col className="w-[12%] sm:w-[14%]" /><col className="w-[24%] sm:w-[28%]" /><col className="w-[26%] sm:w-[22%]" /><col className="w-[8%]" />
                 </colgroup>
                 <thead className="glass sticky top-0 z-40 border-b border-white/5 shadow-lg">
                   <tr>
@@ -936,6 +960,9 @@ function App() {
   const renderSnapshotView = () => {
     if (!snapshotData) return null;
     const { date, exercises, dayLabel } = snapshotData;
+    console.log('Snapshot exercises:', exercises.map(e => ({ name: e.name, completed: e.completed })));
+    const completedCount = exercises.filter(e => e.completed).length;
+    const totalCount = exercises.length;
     return (
        <div className="h-screen flex flex-col bg-black text-white font-sans overflow-hidden">
         <div className="shrink-0 glass border-b border-white/10 px-4 flex items-center justify-between h-[72px] z-50">
@@ -947,23 +974,55 @@ function App() {
                <div className="text-center py-20 opacity-50"><DumbbellIcon className="w-12 h-12 mx-auto mb-4" /><p className="font-bold uppercase tracking-widest">No Workout Data</p></div>
              ) : (
                 <table className="min-w-full divide-y divide-zinc-800 table-fixed">
-                <colgroup><col className="w-[30%]" /><col className="w-[15%]" /><col className="w-[20%]" /><col className="w-[25%]" /><col className="w-[10%]" /></colgroup>
-                <thead className="glass sticky top-0 z-40 border-b border-white/10"><tr><th className="py-3 pl-4 pr-1 text-left text-[9px] font-black uppercase tracking-widest text-zinc-500">Exercise</th><th className="py-3 px-0 text-center text-[9px] font-black uppercase tracking-widest text-zinc-500">Reps</th><th className="py-3 px-0 text-center text-[9px] font-black uppercase tracking-widest text-zinc-500">Wgt</th><th className="py-3 pl-2 pr-1 text-left text-[9px] font-black uppercase tracking-widest text-zinc-500">Muscle</th><th className="py-3 pl-1 pr-2"></th></tr></thead>
+                <colgroup><col className="w-[28%]" /><col className="w-[14%]" /><col className="w-[28%]" /><col className="w-[22%]" /><col className="w-[8%]" /></colgroup>
+                <thead className="glass sticky top-0 z-40 border-b border-white/10"><tr><th className="py-3 pl-4 pr-1 text-left text-[9px] font-black uppercase tracking-widest text-zinc-500">Exercise</th><th className="py-3 px-0 text-center text-[9px] font-black uppercase tracking-widest text-zinc-500">Reps</th><th className="py-3 px-0 text-center text-[9px] font-black uppercase tracking-widest text-zinc-500">Wgt</th><th className="py-3 pl-2 pr-1 text-left text-[9px] font-black uppercase tracking-widest text-zinc-500">Target</th><th className="py-3 pl-1 pr-2 text-center text-[9px] font-black uppercase tracking-widest text-zinc-500">Done</th></tr></thead>
                 <tbody className="divide-y divide-white/5">
                   {exercises.map((ex) => (
                     <tr key={ex.id} className="group hover:bg-white/5 transition-colors">
-                      <td className="py-3 pl-4 pr-1 align-top"><div className={`font-bold text-sm text-white ${ex.completed ? 'line-through opacity-50' : ''}`}>{ex.name}</div>{ex.notes && <div className="text-[10px] text-zinc-600 mt-1">{ex.notes}</div>}</td>
-                      <td className="py-3 px-0 align-top text-center font-bold text-zinc-300 text-xs">{Array.isArray(ex.reps) ? <div className="flex flex-col gap-1">{ex.reps.map((r, i) => <span key={i}>{r}</span>)}</div> : ex.reps}</td>
-                      <td className="py-3 px-0 align-top text-center font-bold text-zinc-300 text-xs">{Array.isArray(ex.weight) ? <div className="flex flex-col gap-1">{ex.weight.map((w, i) => <span key={i}>{w}</span>)}</div> : ex.weight}</td>
-                      <td className="py-3 pl-2 pr-1 align-top text-[10px] text-zinc-500">{ex.muscleGroup}</td>
-                      <td className="py-3 pl-1 pr-2 align-top text-right">{ex.completed && <CheckCircleIcon className="w-4 h-4 text-green-500 inline-block" />}</td>
+                      <td className="py-4 pl-4 pr-1 align-top">
+                        <div className={`font-bold text-sm ${ex.completed ? 'text-white' : 'text-zinc-400'}`}>{ex.name}</div>
+                        <div className="flex items-center gap-2 mt-2 opacity-60">
+                           <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">Sets</span>
+                           <span className="text-[10px] font-bold text-zinc-400">{ex.sets}</span>
+                        </div>
+                        {ex.notes && <div className="text-[10px] text-zinc-600 mt-1">{ex.notes}</div>}
+                      </td>
+                      <td className="py-4 px-0 align-top">
+                         <div className="flex flex-col items-center gap-2">
+                           {Array.isArray(ex.reps) ? ex.reps.map((r, i) => <div key={i} className={`w-10 h-8 flex items-center justify-center bg-zinc-900/50 border rounded text-center font-bold text-sm ${ex.completed ? 'border-green-500/30 text-white' : 'border-zinc-800 text-zinc-400'}`}>{r}</div>) : <div className="font-bold text-zinc-300 text-xs">{ex.reps}</div>}
+                        </div>
+                      </td>
+                      <td className="py-4 px-0 align-top">
+                         <div className="flex flex-col items-center gap-2">
+                           {Array.isArray(ex.weight) ? ex.weight.map((w, i) => <div key={i} className={`w-16 h-8 flex items-center justify-center bg-zinc-900/50 border rounded text-center font-bold text-sm ${ex.completed ? 'border-green-500/30 text-white' : 'border-zinc-800 text-zinc-400'}`}>{w}</div>) : <div className="font-bold text-zinc-300 text-xs">{ex.weight}</div>}
+                        </div>
+                      </td>
+                      <td className="py-4 pl-2 pr-1 align-top">
+                         <div className={`text-[10px] font-medium leading-relaxed ${ex.completed ? 'text-zinc-300' : 'text-zinc-500'}`}>{ex.muscleGroup}</div>
+                      </td>
+                      <td className="py-4 pl-1 pr-2 align-top text-center">
+                        <div className="flex flex-col items-center justify-start pt-1">
+                          {ex.completed ? (
+                            <div className="p-2 rounded-full bg-green-500 text-black shadow-[0_0_15px_rgba(34,197,94,0.6)]">
+                              <CheckCircleIcon className="w-4 h-4" />
+                            </div>
+                          ) : (
+                            <div className="p-2 rounded-full bg-zinc-900 border border-zinc-800">
+                              <CheckCircleIcon className="w-4 h-4 text-zinc-700" />
+                            </div>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
              )}
         </div>
-        <div className="glass p-3 text-center text-[9px] uppercase font-bold tracking-widest text-zinc-500 border-t border-white/10">Snapshot View</div>
+        <div className="glass p-3 flex items-center justify-between border-t border-white/10">
+          <span className="text-[9px] uppercase font-bold tracking-widest text-zinc-500">Saved Workout</span>
+          <span className="text-[10px] font-bold text-zinc-400">{completedCount}/{totalCount} Completed</span>
+        </div>
        </div>
     );
   }
@@ -971,8 +1030,8 @@ function App() {
   const renderAIModal = () => {
     if (!isAIModalOpen) return null;
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-6 animate-fade-in">
-        <div className="glass-card w-full max-w-md shadow-2xl p-8 rounded-2xl border border-zinc-700/50" onClick={e => e.stopPropagation()}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 sm:p-6 animate-fade-in">
+        <div className="glass-card w-full max-w-md shadow-2xl p-6 sm:p-8 rounded-2xl border border-zinc-700/50" onClick={e => e.stopPropagation()}>
           <h3 className="text-2xl font-black uppercase italic mb-2 text-white">AI Builder</h3>
           <p className="text-zinc-400 font-mono text-xs mb-6 uppercase tracking-wider">Describe your target workout</p>
           <textarea autoFocus value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} className="w-full bg-zinc-900/50 border border-zinc-600 p-4 rounded-xl text-white font-bold focus:outline-none focus:border-white resize-none mb-6 placeholder-zinc-600 shadow-inner" rows={3} placeholder="e.g. Chest and Triceps hypertrophy..." />
@@ -988,8 +1047,8 @@ function App() {
   const renderWeekReportModal = () => {
     if (!isReportOpen) return null;
     return (
-       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in">
-        <div className="glass-card w-full max-w-md shadow-2xl p-8 rounded-2xl border border-zinc-700/50" onClick={(e) => e.stopPropagation()}>
+       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 sm:p-6 animate-fade-in">
+        <div className="glass-card w-full max-w-md shadow-2xl p-6 sm:p-8 rounded-2xl border border-zinc-700/50" onClick={(e) => e.stopPropagation()}>
           <h3 className="text-3xl font-black uppercase italic mb-2 text-white">Week Report</h3>
           <p className="text-zinc-500 font-mono text-xs mb-8 uppercase tracking-wider">Current Week Summary</p>
           <div className="grid grid-cols-2 gap-4 mb-8">
@@ -999,7 +1058,7 @@ function App() {
              <div className="bg-zinc-900/50 p-4 border border-zinc-700 rounded-xl col-span-2"><p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">Top Focus</p><p className="text-2xl font-black text-white uppercase">{weeklyStats.topMuscle}</p></div>
           </div>
           <div className="space-y-3">
-             <button onClick={completeWeek} className="w-full bg-zinc-900 border border-zinc-600 text-white font-black text-xs uppercase tracking-widest py-4 rounded-xl hover:bg-zinc-800 hover:border-zinc-400 transition-all btn-shine">Complete & Archive Week</button>
+             <button onClick={completeWeek} className="w-full bg-zinc-900 border border-zinc-600 text-white font-black text-xs uppercase tracking-widest py-4 rounded-xl hover:bg-zinc-800 hover:border-zinc-400 transition-all btn-shine">Save Week</button>
             <button onClick={() => setIsReportOpen(false)} className="w-full py-4 bg-white text-black font-black text-sm uppercase tracking-[0.2em] hover:bg-zinc-200 transition-all rounded-xl">Close</button>
           </div>
         </div>
@@ -1010,8 +1069,8 @@ function App() {
   const renderMonthlyReportModal = () => {
     if (!isMonthlyReportOpen) return null;
     return (
-       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in">
-        <div className="glass-card w-full max-w-md shadow-2xl p-8 rounded-2xl border border-zinc-700/50" onClick={(e) => e.stopPropagation()}>
+       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 sm:p-6 animate-fade-in">
+        <div className="glass-card w-full max-w-md shadow-2xl p-6 sm:p-8 rounded-2xl border border-zinc-700/50" onClick={(e) => e.stopPropagation()}>
           <h3 className="text-3xl font-black uppercase italic mb-2 text-white">{monthlyStats.monthName}</h3>
           <p className="text-zinc-500 font-mono text-xs mb-8 uppercase tracking-wider">Monthly Performance</p>
           <div className="grid grid-cols-2 gap-4 mb-8">
