@@ -14,7 +14,8 @@ import {
   ClockIcon,
   AILogo,
   BarChartIcon,
-  EditIcon
+  EditIcon,
+  InfoIcon
 } from './components/Icon';
 import { DigitalClock } from './components/Clock';
 import { CalendarModal } from './components/CalendarModal';
@@ -176,7 +177,7 @@ function App() {
     }
   });
 
-  const [currentView, setCurrentView] = useState<'week' | 'day' | 'history' | 'snapshot'>('week');
+  const [currentView, setCurrentView] = useState<'week' | 'day' | 'history' | 'snapshot' | 'about'>('week');
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>('Monday');
   
   const [snapshotData, setSnapshotData] = useState<{ date: Date, exercises: Exercise[], dayLabel: string } | null>(null);
@@ -277,7 +278,7 @@ function App() {
   // --- ANDROID BACK BUTTON ---
   useEffect(() => {
     const backHandler = CapacitorApp.addListener('backButton', () => {
-      if (currentView === 'day' || currentView === 'history' || currentView === 'snapshot') {
+      if (currentView === 'day' || currentView === 'history' || currentView === 'snapshot' || currentView === 'about') {
         setCurrentView('week');
       } else if (isAIModalOpen) {
         setIsAIModalOpen(false);
@@ -743,6 +744,7 @@ function App() {
              </div>
           </div>
           <div className="flex gap-1.5 sm:gap-2">
+            <button onClick={() => setCurrentView('about')} className="p-2 sm:p-2.5 bg-zinc-900/80 rounded-full border border-zinc-800 hover:border-zinc-500 hover:bg-zinc-800 transition-all shadow-lg" title="About"><InfoIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-400" /></button>
             <button onClick={() => setIsMonthlyReportOpen(true)} className="p-2 sm:p-2.5 bg-zinc-900/80 rounded-full border border-zinc-800 hover:border-zinc-500 hover:bg-zinc-800 transition-all shadow-lg"><BarChartIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-400" /></button>
             <button onClick={() => setCurrentView('history')} className="p-2 sm:p-2.5 bg-zinc-900/80 rounded-full border border-zinc-800 hover:border-zinc-500 hover:bg-zinc-800 transition-all shadow-lg"><ClockIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-400" /></button>
             <button onClick={() => setIsCalendarModalOpen(true)} className="p-2 sm:p-2.5 bg-zinc-900/80 rounded-full border border-zinc-800 hover:border-zinc-500 hover:bg-zinc-800 transition-all shadow-lg"><CalendarIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-zinc-400" /></button>
@@ -912,6 +914,99 @@ function App() {
       }
     });
   };
+
+  const renderAboutView = () => (
+    <div className="flex flex-col min-h-screen">
+      <div className="shrink-0 glass border-b border-white/10 px-4 flex items-center justify-between h-[72px] sticky top-0 z-50">
+        <button onClick={handleBackToWeek} className="p-2 -ml-2 text-zinc-300 hover:text-white transition-colors"><div className="flex items-center gap-1 font-bold uppercase tracking-wider text-xs"><ChevronLeftIcon className="w-5 h-5" />Back</div></button>
+        <h2 className="text-xl font-black uppercase tracking-tighter italic text-white">About</h2>
+        <div className="w-10"></div>
+      </div>
+
+      <div className="flex-1 p-4 sm:p-6 pb-24 space-y-6 max-w-3xl mx-auto">
+        {/* App Info */}
+        <div className="glass-card p-6 rounded-xl border border-zinc-800">
+          <div className="flex items-center gap-3 mb-4">
+            <AILogo className="w-12 h-12 drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]" />
+            <div>
+              <h3 className="text-2xl font-black uppercase italic text-white">IronLog AI</h3>
+              <p className="text-xs text-zinc-500 font-mono">v3.0.0</p>
+            </div>
+          </div>
+          <p className="text-zinc-300 text-sm leading-relaxed">A modern, intelligent workout tracking application powered by Google's Gemini AI. Track your fitness journey with precision and style.</p>
+        </div>
+
+        {/* How It Works */}
+        <div className="glass-card p-6 rounded-xl border border-zinc-800">
+          <h3 className="text-lg font-black uppercase text-white mb-4 flex items-center gap-2"><span className="text-xl">⚙️</span> How It Works</h3>
+          <div className="space-y-3 text-sm text-zinc-300">
+            <div><span className="font-bold text-white">• Weekly Planning:</span> Organize workouts by day (Mon-Sun)</div>
+            <div><span className="font-bold text-white">• Exercise Tracking:</span> Log sets, reps, weight, and muscle targets</div>
+            <div><span className="font-bold text-white">• Completion Status:</span> Mark exercises complete with green checkmarks</div>
+            <div><span className="font-bold text-white">• Auto-Archive:</span> Automatically saves weeks when Monday arrives</div>
+            <div><span className="font-bold text-white">• Local Storage:</span> All data saved in your browser (no account needed)</div>
+          </div>
+        </div>
+
+        {/* Features */}
+        <div className="glass-card p-6 rounded-xl border border-zinc-800">
+          <h3 className="text-lg font-black uppercase text-white mb-4 flex items-center gap-2"><span className="text-xl">✨</span> Key Features</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div className="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800"><span className="font-bold text-white block mb-1">🤖 AI Generation</span><span className="text-zinc-400 text-xs">Generate workouts using natural language</span></div>
+            <div className="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800"><span className="font-bold text-white block mb-1">📅 Calendar View</span><span className="text-zinc-400 text-xs">Visual workout history with completion dots</span></div>
+            <div className="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800"><span className="font-bold text-white block mb-1">📊 Reports</span><span className="text-zinc-400 text-xs">Weekly & monthly performance stats</span></div>
+            <div className="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800"><span className="font-bold text-white block mb-1">💾 Backup/Restore</span><span className="text-zinc-400 text-xs">Export and import your workout data</span></div>
+            <div className="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800"><span className="font-bold text-white block mb-1">✅ Progress Tracking</span><span className="text-zinc-400 text-xs">Track volume, sets, and muscle focus</span></div>
+            <div className="bg-zinc-900/50 p-3 rounded-lg border border-zinc-800"><span className="font-bold text-white block mb-1">📱 Responsive</span><span className="text-zinc-400 text-xs">Works on mobile, tablet, and desktop</span></div>
+          </div>
+        </div>
+
+        {/* How to Use */}
+        <div className="glass-card p-6 rounded-xl border border-zinc-800">
+          <h3 className="text-lg font-black uppercase text-white mb-4 flex items-center gap-2"><span className="text-xl">📖</span> How to Use</h3>
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-bold text-white text-sm mb-2">1. Adding Exercises</h4>
+              <p className="text-zinc-400 text-xs leading-relaxed">• Click any day card to open workout view<br/>• Use "AI Generate" for automatic workout creation<br/>• Or click "Add Exercise" to manually add exercises</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-white text-sm mb-2">2. Tracking Workouts</h4>
+              <p className="text-zinc-400 text-xs leading-relaxed">• Enter reps and weight for each set<br/>• Add muscle target and notes<br/>• Click checkmark when exercise is complete<br/>• Green tick persists after saving</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-white text-sm mb-2">3. Viewing Progress</h4>
+              <p className="text-zinc-400 text-xs leading-relaxed">• Click "Week Report" for current week stats<br/>• Use chart icon for monthly performance<br/>• Access "History" to view past workouts<br/>• Calendar shows completion with green dots</p>
+            </div>
+            <div>
+              <h4 className="font-bold text-white text-sm mb-2">4. Data Management</h4>
+              <p className="text-zinc-400 text-xs leading-relaxed">• "Backup" exports data as JSON file<br/>• "Restore" imports previous backups<br/>• "Reset" restores default exercises<br/>• Auto-save keeps data in browser</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tech Stack */}
+        <div className="glass-card p-6 rounded-xl border border-zinc-800">
+          <h3 className="text-lg font-black uppercase text-white mb-4 flex items-center gap-2"><span className="text-xl">🛠️</span> Built With</h3>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="bg-zinc-900/50 p-2 rounded border border-zinc-800 text-center"><span className="font-bold text-white">React 19.2.0</span></div>
+            <div className="bg-zinc-900/50 p-2 rounded border border-zinc-800 text-center"><span className="font-bold text-white">TypeScript 5.2.2</span></div>
+            <div className="bg-zinc-900/50 p-2 rounded border border-zinc-800 text-center"><span className="font-bold text-white">Vite 5.2.0</span></div>
+            <div className="bg-zinc-900/50 p-2 rounded border border-zinc-800 text-center"><span className="font-bold text-white">TailwindCSS 3.4.3</span></div>
+            <div className="bg-zinc-900/50 p-2 rounded border border-zinc-800 text-center"><span className="font-bold text-white">Gemini AI</span></div>
+            <div className="bg-zinc-900/50 p-2 rounded border border-zinc-800 text-center"><span className="font-bold text-white">Capacitor 7.4.4</span></div>
+          </div>
+        </div>
+
+        {/* Developer */}
+        <div className="glass-card p-6 rounded-xl border border-zinc-800 text-center">
+          <h3 className="text-lg font-black uppercase text-white mb-3">👨‍💻 Developer</h3>
+          <p className="text-zinc-300 font-bold mb-2">MD Abdul Raheem</p>
+          <a href="https://github.com/MD-Abdul-Raheem/Workout_Tracker" target="_blank" rel="noopener noreferrer" className="inline-block text-xs text-zinc-500 hover:text-white transition-colors underline">github.com/MD-Abdul-Raheem</a>
+          <p className="text-zinc-600 text-xs mt-4 italic">Built with 💪 and ❤️ for fitness enthusiasts</p>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderHistoryView = () => (
     <div className="flex flex-col min-h-screen">
@@ -1092,7 +1187,7 @@ function App() {
 
   return (
     <div className="min-h-screen text-white selection:bg-white selection:text-black">
-      {currentView === 'history' ? renderHistoryView() : currentView === 'snapshot' ? renderSnapshotView() : currentView === 'week' ? renderWeekView() : renderDayView()}
+      {currentView === 'about' ? renderAboutView() : currentView === 'history' ? renderHistoryView() : currentView === 'snapshot' ? renderSnapshotView() : currentView === 'week' ? renderWeekView() : renderDayView()}
       {renderAIModal()}
       {renderWeekReportModal()}
       {renderMonthlyReportModal()}
