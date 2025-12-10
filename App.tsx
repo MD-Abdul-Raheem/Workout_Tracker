@@ -330,11 +330,6 @@ function App() {
           };
 
           setHistory(prev => [newEntry, ...prev]);
-          const resetPlan = { ...weeklyPlan };
-          Object.keys(resetPlan).forEach(day => {
-            resetPlan[day as DayOfWeek] = resetPlan[day as DayOfWeek].map(ex => ({ ...ex, completed: false }));
-          });
-          setWeeklyPlan(resetPlan);
           showToast("Week saved! Ready for new week.", "success");
         }
         localStorage.setItem(LAST_ACTIVE_WEEK_KEY, currentMondayISO);
@@ -604,11 +599,6 @@ function App() {
     }
     const archived = archiveCurrentWeek();
     if (archived) {
-      const resetPlan = { ...weeklyPlan };
-      Object.keys(resetPlan).forEach(day => {
-        resetPlan[day as DayOfWeek] = resetPlan[day as DayOfWeek].map(ex => ({ ...ex, completed: false }));
-      });
-      setWeeklyPlan(resetPlan);
       setIsReportOpen(false);
       showToast("Week saved to History!", "success");
     }
@@ -909,12 +899,27 @@ function App() {
     );
   };
 
+  const handleResetToDefault = () => {
+    setConfirmation({
+      isOpen: true,
+      title: 'Reset to Default?',
+      message: 'This will replace your current workout plan with the default exercises. Your history will be preserved.',
+      onConfirm: () => {
+        setWeeklyPlan(INITIAL_WORKOUT_PLAN);
+        setWorkoutTitles(DEFAULT_TITLES);
+        setConfirmation(prev => ({ ...prev, isOpen: false }));
+        showToast("Default exercises restored!", "success");
+      }
+    });
+  };
+
   const renderHistoryView = () => (
     <div className="flex flex-col min-h-screen">
       <div className="shrink-0 glass border-b border-white/10 px-4 flex items-center justify-between h-[72px] sticky top-0 z-50">
         <button onClick={handleBackToWeek} className="p-2 -ml-2 text-zinc-300 hover:text-white transition-colors"><div className="flex items-center gap-1 font-bold uppercase tracking-wider text-xs"><ChevronLeftIcon className="w-5 h-5" />Back</div></button>
         <h2 className="text-xl font-black uppercase tracking-tighter italic text-white">History</h2>
         <div className="flex gap-2">
+            <button onClick={handleResetToDefault} className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-white px-2 py-1 rounded border border-zinc-800 hover:border-zinc-600">Reset</button>
             <button onClick={handleExportData} className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-white px-2 py-1 rounded border border-zinc-800 hover:border-zinc-600">Backup</button>
             <button onClick={handleImportClick} className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-white px-2 py-1 rounded border border-zinc-800 hover:border-zinc-600">Restore</button>
             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".json" />

@@ -14,8 +14,8 @@ export const generateWorkoutForDay = async (
   Return a JSON array where each object represents an exercise with realistic sets, reps, and suggested weight (in kg/lbs generic units).`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash-exp",
+    const model = ai.models.get({ model: "gemini-2.0-flash-exp" });
+    const response = await model.generateContent({
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -37,7 +37,7 @@ export const generateWorkoutForDay = async (
       },
     });
 
-    const text = response.text;
+    const text = await response.text();
     if (!text) return [];
 
     const rawData = JSON.parse(text);
